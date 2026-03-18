@@ -26,3 +26,13 @@ data/processed/
 
 # --- macOS ---
 .DS_Store
+
+# --- Jupyter ---
+notebooks/.ipynb_checkppints/
+notebooks/.virtual_documents/
+
+# -- Anaconda ---
+notebooks/anaconda_projects/
+
+# --- Notebook data cache ---
+notebooks/data/
