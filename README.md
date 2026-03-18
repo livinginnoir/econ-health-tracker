@@ -1,5 +1,10 @@
 # PNW Regional Economic Health Dashboard
 
+![Phase 1 - Data Pipeline](https://img.shields.io/badge/Phase%201-Data%20Pipeline%20Complete-brightgreen?style=flat-square)
+![Phase 2 - Dashboard](https://img.shields.io/badge/Phase%202-In%20Progress-blue?style=flat-square)
+![Tests](https://img.shields.io/badge/Tests-17%20passing-brightgreen?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square)
+
 An interactive dashboard tracking key economic indicators for Portland and the Pacific Northwest. Built as a portfolio project demonstrating data engineering, data science, and business communication skills.
 
 **Live app:** *(link after Streamlit Community Cloud deploy)*  
@@ -84,6 +89,20 @@ pnw_dashboard/
 ├── .env.example
 └── .gitignore
 ```
+
+---
+
+## Phase 1 Summary — Data Pipeline
+
+Completed March 2026. The data pipeline pulls, normalises, and caches all configured economic indicators from the FRED API.
+
+| | |
+|---|---|
+| **Series ingested** | 4 (unemployment, CPI, home prices, fed funds rate) |
+| **Date range** | 2000-01-01 → present |
+| **Processed output** | `data/processed/all_indicators.csv` (314 rows × 4 cols) |
+| **Unit tests** | 17 passing — normalisation, caching, key validation |
+| **Pipeline runtime** | ~1 second |
 
 ---
 
