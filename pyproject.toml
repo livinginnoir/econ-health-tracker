@@ -1,0 +1,6 @@
+[tool.setuptools.packages.find]
+where = ["."]
+
+[project]
+name = "econ-health-tracker"
+version = "0.1.0"

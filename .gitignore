@@ -1,2 +1,28 @@
-eht/
+# --- Secrets ---
+.env
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# --- Virtual environment ---
+venv/
 .venv/
+eht/
+
+# --- Data (regenerate from pipeline) ---
+data/raw/
+data/processed/
+
+# --- Pytest ---
+.pytest_cache/
+
+# --- VS Code ---
+.vscode/
+
+# --- macOS ---
+.DS_Store
