@@ -4,3 +4,6 @@ python-dotenv==1.0.1
 requests==2.32.3
 pytest==7.4.4
 matplotlib==3.9.0
+# Phase 2 additions
+streamlit==1.35.0
+plotly==5.22.0
