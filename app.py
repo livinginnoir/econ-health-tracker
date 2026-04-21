@@ -301,10 +301,15 @@ else:
         date_str  = snap["latest_date"].strftime("%b %Y") if snap["latest_date"] else "—"
 
         # Delta formatting
+        # "up" CSS class = green, "down" = red.
+        # Colour reflects whether the move is economically positive,
+        # not just whether the number went up — e.g. falling unemployment = good.
         if snap["delta"] is not None:
-            sign        = "+" if snap["delta"] >= 0 else ""
-            direction   = "up" if snap["delta"] >= 0 else "down"
-            arrow       = "▲" if snap["delta"] >= 0 else "▼"
+            sign         = "+" if snap["delta"] >= 0 else ""
+            arrow        = "▲" if snap["delta"] >= 0 else "▼"
+            positive_dir = meta.get("positive_direction", "up")
+            is_good      = (snap["delta"] >= 0) == (positive_dir == "up")
+            direction    = "up" if is_good else "down"
             delta_html  = (
                 f'<div class="metric-delta {direction}">'
                 f'{arrow} {sign}{snap["delta"]:.2f} ({sign}{snap["delta_pct"]:.1f}%) '

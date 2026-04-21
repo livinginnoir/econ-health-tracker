@@ -21,6 +21,7 @@ FRED_SERIES: dict[str, dict] = {
         "units": "Percent",
         "frequency": "Monthly",
         "source": "FRED",
+        "positive_direction": "down",   # lower unemployment = better
     },
     "cpi_west": {
         "series_id": "CUURA400SA0",
@@ -28,6 +29,7 @@ FRED_SERIES: dict[str, dict] = {
         "units": "Index (1982–84=100)",
         "frequency": "Monthly",
         "source": "FRED",
+        "positive_direction": "down",   # lower inflation = better
     },
     "home_price_index": {
         "series_id": "ATNHPIUS38900Q",
@@ -35,6 +37,7 @@ FRED_SERIES: dict[str, dict] = {
         "units": "Index",
         "frequency": "Quarterly",
         "source": "FRED",
+        "positive_direction": "down",   # lower = more affordable
     },
     "fed_funds_rate": {
         "series_id": "FEDFUNDS",
@@ -42,6 +45,7 @@ FRED_SERIES: dict[str, dict] = {
         "units": "Percent",
         "frequency": "Monthly",
         "source": "FRED",
+        "positive_direction": "down",   # lower rates = looser conditions
     },
 }
 
@@ -77,7 +81,7 @@ RAW_DATA_DIR: str = "data/raw"
 PROCESSED_DATA_DIR: str = "data/processed"
 
 # ---------------------------------------------------------------------------
-# Streamlit App Settings (used in Phase 2+)
+# Streamlit App Settings
 # ---------------------------------------------------------------------------
 
 APP_TITLE: str = "PNW Regional Economic Health Dashboard"
