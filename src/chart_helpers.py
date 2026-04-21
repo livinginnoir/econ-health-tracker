@@ -312,7 +312,9 @@ def compute_snapshot(df: pd.DataFrame, key: str) -> dict:
         delta = delta_pct = None
     else:
         # Use the observation closest to the exact prior-year target date.
-        closest_date = (candidates.index - prior_target).abs().argmin()
+        # idxmin() returns the index label of the closest date — safe for DatetimeIndex
+        time_deltas  = pd.Series(candidates.index.to_list(), index=candidates.index) - prior_target
+        closest_date = time_deltas.abs().idxmin()
         prior_value  = candidates.loc[closest_date]
         delta        = latest_value - prior_value
         delta_pct    = (delta / prior_value * 100) if prior_value != 0 else None
