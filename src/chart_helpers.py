@@ -207,8 +207,7 @@ def make_line_chart(
         name=label,
         line=dict(color=color, width=2),
         fill="tozeroy",
-        fillcolor=color.replace(")", ", 0.08)").replace("rgb", "rgba") if color.startswith("rgb") else
-                  color + "14",   # 14 = ~8% opacity hex suffix
+        fillcolor="rgba(0,0,0,0.04)",
         hovertemplate=f"<b>{label}</b><br>%{{x|%b %Y}}<br>%{{y:.2f}} {units}<extra></extra>",
     ))
 
