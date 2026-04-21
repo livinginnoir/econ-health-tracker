@@ -207,7 +207,8 @@ def make_line_chart(
         name=label,
         line=dict(color=color, width=2),
         fill="tozeroy",
-        fillcolor="rgba(0,0,0,0.04)",
+        fillcolor=color.replace(")", ", 0.08)").replace("rgb", "rgba") if color.startswith("rgb") else
+                  color + "14",   # 14 = ~8% opacity hex suffix
         hovertemplate=f"<b>{label}</b><br>%{{x|%b %Y}}<br>%{{y:.2f}} {units}<extra></extra>",
     ))
 
@@ -272,14 +273,19 @@ def make_multi_line_chart(
 
 def compute_snapshot(df: pd.DataFrame, key: str) -> dict:
     """
-    Compute the latest value and period-over-period delta for a metric card.
+    Compute the latest value and year-over-year delta for a metric card.
+
+    The prior-year value is determined by matching the same calendar month
+    (and quarter for quarterly series) one year prior — not a fixed N-step
+    offset.  This avoids landing on the wrong observation when the series has
+    gaps or irregular spacing.
 
     Returns a dict with keys:
       - latest_value  : float
       - latest_date   : pd.Timestamp
-      - delta         : float | None  (None if not enough history)
+      - delta         : float | None  (None if prior-year obs not found)
       - delta_pct     : float | None
-      - delta_label   : str           (e.g. "MoM" or "YoY")
+      - delta_label   : str           ("YoY")
     """
     series = df[key].dropna()
 
@@ -291,25 +297,25 @@ def compute_snapshot(df: pd.DataFrame, key: str) -> dict:
 
     latest_value = series.iloc[-1]
     latest_date  = series.index[-1]
+    label        = "YoY"
 
-    # Determine comparison period: use 12-period lookback for quarterly,
-    # 1-period for monthly.  Infer from median gap between observations.
-    if len(series) >= 2:
-        median_days = pd.Series(series.index).diff().median().days
-        is_quarterly = median_days > 60
+    # Build the target prior-year timestamp: same month, one year back.
+    # For quarterly series the day-of-month may differ slightly across years,
+    # so we search within a ±15-day window around the target date.
+    prior_target = latest_date - pd.DateOffset(years=1)
+    window_start = prior_target - pd.Timedelta(days=15)
+    window_end   = prior_target + pd.Timedelta(days=15)
 
-        lookback = 4 if is_quarterly else 12   # 1-year comparison
-        label    = "YoY"
+    candidates = series.loc[window_start:window_end]
 
-        if len(series) > lookback:
-            prior_value = series.iloc[-(lookback + 1)]
-            delta       = latest_value - prior_value
-            delta_pct   = (delta / prior_value * 100) if prior_value != 0 else None
-        else:
-            delta = delta_pct = None
-    else:
+    if candidates.empty:
         delta = delta_pct = None
-        label = ""
+    else:
+        # Use the observation closest to the exact prior-year target date.
+        closest_date = (candidates.index - prior_target).abs().argmin()
+        prior_value  = candidates.iloc[closest_date]
+        delta        = latest_value - prior_value
+        delta_pct    = (delta / prior_value * 100) if prior_value != 0 else None
 
     return dict(
         latest_value=latest_value,
