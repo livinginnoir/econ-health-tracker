@@ -1,14 +1,15 @@
 # PNW Regional Economic Health Dashboard
 
-![Phase 1 - Data Pipeline](https://img.shields.io/badge/Phase%201-Data%20Pipeline%20Complete-brightgreen?style=flat-square)
-![Phase 2 - Dashboard](https://img.shields.io/badge/Phase%202-In%20Progress-blue?style=flat-square)
+![Phase 1 - Data Pipeline](https://img.shields.io/badge/Phase%201-Complete-brightgreen?style=flat-square)
+![Phase 2 - Dashboard](https://img.shields.io/badge/Phase%202-Complete-brightgreen?style=flat-square)
+![Phase 3 - DS Layer](https://img.shields.io/badge/Phase%203-Planned-lightgrey?style=flat-square)
 ![Tests](https://img.shields.io/badge/Tests-17%20passing-brightgreen?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.12-blue?style=flat-square)
 
-An interactive dashboard tracking key economic indicators for Portland and the Pacific Northwest. Built as a portfolio project demonstrating data engineering, data science, and business communication skills.
+An interactive dashboard tracking key economic indicators for Portland and the Pacific Northwest. Built as a portfolio project demonstrating data engineering, data visualization, and business communication skills.
 
-**Live app:** *(link after Streamlit Community Cloud deploy)*  
-**Tech stack:** Python · FRED API · BLS API · Pandas · Prophet · Streamlit
+**Live app:** https://pnw-econ-health-tracker.streamlit.app
+**Tech stack:** Python · FRED API · Pandas · Plotly · Streamlit
 
 ---
 
@@ -16,8 +17,8 @@ An interactive dashboard tracking key economic indicators for Portland and the P
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 1 | Data pipeline (FRED + BLS ingestion, CSV caching) | ✅ Complete |
-| 2 | Core Streamlit dashboard (visualisations, interactivity) | 🔜 Up next |
+| 1 | Data pipeline (FRED ingestion, normalization, CSV caching) | ✅ Complete |
+| 2 | Core Streamlit dashboard (visualizations, interactivity, deployment) | ✅ Complete |
 | 3 | DS layer (Prophet forecasting, anomaly detection, "So What?" narrative) | 🔜 Planned |
 
 ---
@@ -65,7 +66,16 @@ Outputs:
 - `data/raw/<key>.csv` — individual series CSVs
 - `data/processed/all_indicators.csv` — merged, ready for the dashboard
 
-### 4. Run tests
+### 4. Run the dashboard locally
+```bash
+streamlit run app.py
+```
+
+The app loads from `data/processed/all_indicators.csv` if it exists (fast path),
+otherwise it fetches live from the FRED API. Use the **Refresh from FRED** button
+in the sidebar to force a fresh pull at any time.
+
+### 5. Run tests
 ```bash
 pytest tests/ -v
 ```
@@ -76,25 +86,27 @@ pytest tests/ -v
 
 ```
 pnw_dashboard/
-├── src/
-│   ├── config.py          # Series IDs, labels, settings
-│   └── data_fetcher.py    # FRED + BLS ingestion, caching
-├── data/
-│   ├── raw/               # Cached individual series CSVs (gitignored)
-│   └── processed/         # Merged output for dashboard
-├── tests/
-│   └── test_data_fetcher.py
-├── run_pipeline.py        # Phase 1 pipeline entry point
+├── app.py                     # Streamlit entry point
+├── run_pipeline.py            # Phase 1 pipeline entry point
 ├── requirements.txt
 ├── .env.example
-└── .gitignore
+├── .gitignore
+├── src/
+│   ├── config.py              # Series IDs, labels, positive_direction flags
+│   ├── data_fetcher.py        # FRED + BLS ingestion, caching
+│   └── chart_helpers.py       # Plotly chart builders, snapshot card logic
+├── data/
+│   ├── raw/                   # Cached individual series CSVs (gitignored)
+│   └── processed/             # Merged output for dashboard (gitignored)
+└── tests/
+    └── test_data_fetcher.py
 ```
 
 ---
 
 ## Phase 1 Summary — Data Pipeline
 
-Completed March 2026. The data pipeline pulls, normalises, and caches all configured economic indicators from the FRED API.
+*Completed March 2026.*
 
 | | |
 |---|---|
@@ -104,10 +116,47 @@ Completed March 2026. The data pipeline pulls, normalises, and caches all config
 | **Unit tests** | 17 passing — normalisation, caching, key validation |
 | **Pipeline runtime** | ~1 second |
 
+The pipeline pulls, normalises, and caches all configured FRED series. Series with
+different frequencies (monthly vs quarterly) are outer-joined — sparse values in
+quarterly columns are expected and handled by the dashboard layer.
+
+---
+
+## Phase 2 Summary — Core Dashboard
+
+*Completed April 2026.*
+
+| | |
+|---|---|
+| **Deployment** | Streamlit Community Cloud (auto-deploys on push to `main`) |
+| **Snapshot cards** | Latest value + YoY delta per indicator, color-coded by economic direction |
+| **Charts** | Plotly line charts with NBER recession bands (2001, 2007–09, 2020) |
+| **Interactivity** | Indicator toggles, date range picker, live data refresh |
+| **Data table** | Expandable raw data view with CSV download |
+
+Key design decisions:
+- Delta colors reflect whether a move is **economically good or bad**, not just whether the number went up or down (configured via `positive_direction` in `config.py`).
+- YoY comparisons match on the **same calendar month** in the prior year, not a fixed N-step offset, so they're robust to data gaps and irregular spacing.
+- Charts and snapshot logic are fully decoupled from the Streamlit layout in `src/chart_helpers.py`.
+
+---
+
+## Deploying to Streamlit Community Cloud
+
+1. Push repo to GitHub (public or private).
+2. Go to [share.streamlit.io](https://share.streamlit.io) → **Create app** → point to `app.py`.
+3. Under **Advanced settings**, set Python version to **3.12**.
+4. Under **Secrets**, add:
+   ```toml
+   FRED_API_KEY = "your_key_here"
+   ```
+5. Deploy. The app auto-redeploys on every push to `main`.
+
 ---
 
 ## Data Notes
 
-- Series with different frequencies (monthly vs quarterly) are outer-joined — sparse values in quarterly columns are expected and handled in the dashboard layer.
 - All timestamps are UTC-naive `DatetimeIndex` with index name `"date"`.
-- Raw CSVs are excluded from git; run the pipeline to regenerate locally.
+- Monthly and quarterly series are outer-joined; `NaN` in quarterly columns between observation dates is expected.
+- Raw and processed CSVs are excluded from git — run the pipeline to regenerate locally.
+- NBER recession dates are hardcoded constants in `src/chart_helpers.py` (they do not change retroactively).
