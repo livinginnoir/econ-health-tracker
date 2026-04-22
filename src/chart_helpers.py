@@ -365,6 +365,7 @@ def add_anomaly_markers(
         mode="markers",
         name=f"{label} (anomaly)",
         legendrank=3,
+        showlegend=False,
         marker=dict(
             color="rgba(0,0,0,0)",          # transparent fill → hollow circle
             size=10,
