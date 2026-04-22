@@ -113,10 +113,11 @@ def detect_anomalies(
     # NaN z-scores (first few observations, or flat windows) → not flagged.
     flags = flags.fillna(False)
 
-    # Suppress the most recent observation — it has no forward context and
-    # frequently generates false positives at the trailing edge of the series.
-    if len(flags) > 0:
-        flags.iloc[-1] = False
+    # Suppress the most recent 3 observations — the trailing edge of a rolling
+    # z-score window has limited forward context and systematically over-flags
+    # recent data points, especially for trending series like CPI.
+    if len(flags) > 3:
+        flags.iloc[-3:] = False
 
     flags.name = f"{key}_anomaly"
 

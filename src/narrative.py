@@ -214,7 +214,7 @@ def _finding_yoy_change(series: pd.Series, meta: dict) -> list[str]:
     is_good = (delta > 0) == (pos_dir == "up")
     sentiment = "a positive sign" if is_good else "a concern worth monitoring"
     if severity == "mild":
-        sentiment = "broadly stable"
+        sentiment = "modest change"
 
     return [
         f"{label} has {direction} {delta_pct:.1f}% year-over-year — "
@@ -304,20 +304,30 @@ def _finding_forecast(
     total_change     = forecast_end_val - last_actual
     total_change_pct = abs(total_change / last_actual * 100) if last_actual != 0 else 0.0
 
+    severity  = _classify_severity(total_change_pct)
     direction = "rise" if total_change > 0 else "fall"
     is_good   = (total_change > 0) == (pos_dir == "up")
-    outlook   = "a potentially positive development" if is_good else "a potential headwind"
+
+    # Vary outlook language by severity to avoid every card ending identically.
+    if is_good:
+        outlook = "a positive signal" if severity == "significant" else "a moderately positive sign"
+    else:
+        outlook = "a meaningful headwind" if severity == "significant" else "worth watching"
 
     horizon_months = len(future)
     horizon_label  = f"{horizon_months} month{'s' if horizon_months != 1 else ''}"
 
-    # If the projected change is implausibly large (>20% for any indicator),
-    # report direction only without a specific magnitude — a large anchor shift
-    # from a volatile recent period can produce unreliable point estimates.
-    if total_change_pct > 20.0:
+    # If the projected change is implausibly large, report direction only —
+    # a large anchor shift from a volatile recent period makes Prophet point
+    # estimates unreliable beyond directional guidance.
+    # Threshold: 12% for percent/rate series (units contain "Percent"),
+    # 25% for index series where larger swings are more plausible.
+    is_rate_series = "percent" in meta.get("units", "").lower()
+    implausibility_threshold = 12.0 if is_rate_series else 25.0
+    if total_change_pct > implausibility_threshold:
         return [
             f"The model projects {label} to {direction} over the next {horizon_label}, "
-            f"though the magnitude is uncertain given recent volatility."
+            f"though the precise magnitude is uncertain."
         ]
 
     return [
