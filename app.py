@@ -312,6 +312,17 @@ with st.sidebar:
 # ---------------------------------------------------------------------------
 
 df_raw = load_data()
+
+# Validate that expected columns are present — surface a clear error if not.
+missing_cols = [k for k in FRED_SERIES if k not in df_raw.columns]
+if missing_cols:
+    st.error(
+        f"Data is missing expected columns: {missing_cols}. "
+        f"Available columns: {list(df_raw.columns)}. "
+        "Try clicking 'Refresh from FRED' in the sidebar."
+    )
+    st.stop()
+
 df = df_raw.loc[
     (df_raw.index >= pd.Timestamp(date_start)) &
     (df_raw.index <= pd.Timestamp(date_end))
@@ -368,6 +379,8 @@ else:
     }
 
     for col, key in zip(card_cols, selected_keys):
+        if key not in df_raw.columns:
+            continue
         meta     = FRED_SERIES[key]
         snap     = compute_snapshot(df_raw, key)   # use full history for snapshot
         accent   = ACCENT_COLORS.get(key, "#888888")
