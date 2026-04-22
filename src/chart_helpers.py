@@ -268,7 +268,7 @@ def add_forecast_overlay(
 
     # --- Vertical divider line at the forecast start ---
     fig.add_vline(
-        x=last_historical_date,
+        x=last_historical_date.isoformat(),
         line_width=1,
         line_dash="dot",
         line_color="rgba(160, 160, 160, 0.6)",
