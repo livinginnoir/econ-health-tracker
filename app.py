@@ -331,7 +331,9 @@ forecasts: dict = {}
 if show_forecast:
     with st.spinner("Running Prophet forecasts…"):
         try:
-            forecasts = load_forecasts(cache_key, df_raw)
+            result = load_forecasts(cache_key, df_raw)
+            # Guard against stale cache returning the old tuple format
+            forecasts = result if isinstance(result, dict) else {}
         except Exception as e:
             st.warning(f"Forecast unavailable: {e}")
 
