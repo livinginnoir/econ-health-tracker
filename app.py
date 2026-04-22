@@ -237,12 +237,12 @@ def load_forecasts(df_hash: str, _df: pd.DataFrame) -> dict:
     return forecast_all(_df)
 
 
-@st.cache_data(ttl=3600, show_spinner="Detecting anomalies…")
+
+@st.cache_data(ttl=3600)
 def load_anomalies(df_hash: str, _df: pd.DataFrame) -> dict:
     """
-    Run anomaly detection and return boolean flag Series for all indicators.
-
-    Same ``df_hash`` cache-key pattern as ``load_forecasts``.
+    Run anomaly detection for use in the narrative layer.
+    Cached independently of the forecast; no UI toggle.
     """
     return detect_all_anomalies(_df)
 
@@ -287,7 +287,6 @@ with st.sidebar:
     # --- Phase 3 controls ---
     st.markdown("**Analysis**")
     show_forecast  = st.toggle("Show 12-month forecast",   value=True,  key="show_forecast")
-    show_anomalies = st.toggle("Show anomaly markers",     value=True,  key="show_anomalies")
     show_narrative = st.toggle('Show "So What?" insights', value=True,  key="show_narrative")
 
     st.markdown("---")
@@ -303,8 +302,7 @@ with st.sidebar:
         '<div style="font-size:0.65rem;color:#666;line-height:1.6">'
         "Data: FRED (St. Louis Fed)<br>"
         "Recession bands: NBER<br>"
-        "Forecast: Prophet (Meta)<br>"
-        "Anomalies: rolling z-score"
+        "Forecast: Prophet (Meta)"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -330,8 +328,6 @@ last_updated = df_raw.index.max().strftime("%B %Y")
 cache_key = _df_cache_key(df_raw)
 
 forecasts: dict = {}
-anomalies: dict = {}
-
 if show_forecast:
     with st.spinner("Running Prophet forecasts…"):
         try:
@@ -339,8 +335,9 @@ if show_forecast:
         except Exception as e:
             st.warning(f"Forecast unavailable: {e}")
 
-if show_anomalies:
-    anomalies = load_anomalies(cache_key, df_raw)
+# Anomaly flags are always computed for the narrative layer regardless of
+# whether chart markers are shown (markers have been removed from charts).
+anomalies = load_anomalies(cache_key, df_raw)
 
 # ---------------------------------------------------------------------------
 # Header
@@ -437,7 +434,6 @@ if selected_keys:
             color=color,
             show_recession_bands=True,
             forecast_df=forecasts.get(key) if show_forecast else None,
-            anomaly_flags=anomalies.get(key) if show_anomalies else None,
         )
 
         with st.container():
@@ -462,7 +458,7 @@ if show_narrative and selected_keys:
     # Build narratives using full history (same as forecasts/anomalies)
     narratives = build_all_narratives(
         df=df_raw,
-        all_flags=anomalies if show_anomalies else None,
+        all_flags=anomalies,
         all_forecasts=forecasts if show_forecast else None,
     )
 

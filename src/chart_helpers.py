@@ -319,70 +319,6 @@ def add_forecast_overlay(
 
 
 # ---------------------------------------------------------------------------
-# Phase 3 — Anomaly markers
-# ---------------------------------------------------------------------------
-
-def add_anomaly_markers(
-    fig: go.Figure,
-    series: pd.Series,
-    flags: pd.Series,
-    color: str,
-    label: str,
-    units: str,
-) -> go.Figure:
-    """
-    Add scatter markers at anomalous observations on an existing figure.
-
-    Anomaly points are rendered as open circles (hollow) slightly larger than
-    the line width.  This style is visually distinctive without obscuring the
-    underlying line.
-
-    Parameters
-    ----------
-    fig    : Existing figure (already has the historical line trace).
-    series : The full historical series (same data as in the line trace).
-    flags  : Boolean Series from ``anomaly_detector.detect_anomalies()``,
-             aligned to ``series`` index.  True = flagged.
-    color  : Hex color matching the indicator's line (markers use same hue).
-    label  : Human-readable series name for legend + hover text.
-    units  : Y-axis unit string for hover text.
-
-    Returns
-    -------
-    go.Figure
-        Modified figure (same object, returned for chaining).
-    """
-    # Align flags to the series index (flags may be a subset if series had NaNs)
-    aligned_flags = flags.reindex(series.index, fill_value=False)
-    anomalous     = series[aligned_flags]
-
-    if anomalous.empty:
-        return fig
-
-    fig.add_trace(go.Scatter(
-        x=anomalous.index,
-        y=anomalous.values,
-        mode="markers",
-        name=f"{label} (anomaly)",
-        legendrank=3,
-        showlegend=False,
-        marker=dict(
-            color="rgba(0,0,0,0)",          # transparent fill → hollow circle
-            size=10,
-            line=dict(color=color, width=2),
-            symbol="circle-open",
-        ),
-        hovertemplate=(
-            f"<b>{label} — Unusual</b><br>"
-            "%{x|%b %Y}<br>"
-            f"%{{y:.2f}} {units}<extra></extra>"
-        ),
-    ))
-
-    return fig
-
-
-# ---------------------------------------------------------------------------
 # Individual indicator charts
 # ---------------------------------------------------------------------------
 
@@ -394,7 +330,6 @@ def make_line_chart(
     color: str,
     show_recession_bands: bool = True,
     forecast_df: pd.DataFrame | None = None,
-    anomaly_flags: pd.Series | None = None,
 ) -> go.Figure:
     """
     Build a single-series line chart for one economic indicator.
@@ -412,9 +347,6 @@ def make_line_chart(
     forecast_df          : Optional Prophet forecast DataFrame.  If provided,
                            the forecast overlay is drawn automatically.
                            Schema: ``ds``, ``yhat``, ``yhat_lower``, ``yhat_upper``.
-    anomaly_flags        : Optional boolean Series of anomaly flags aligned to
-                           ``df[key]`` index.  If provided, anomaly markers are
-                           drawn automatically.
 
     Returns
     -------
@@ -464,10 +396,6 @@ def make_line_chart(
             label=label,
             units=units,
         )
-
-    # --- Phase 3: anomaly markers (added after forecast so they render on top) ---
-    if anomaly_flags is not None and not series.empty:
-        add_anomaly_markers(fig, series, anomaly_flags, color, label, units)
 
     # Legend styling
     fig.update_layout(

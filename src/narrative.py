@@ -45,7 +45,7 @@ from datetime import date
 import pandas as pd
 
 from src.config import FRED_SERIES
-from src.anomaly_detector import get_anomaly_events
+from src.anomaly_detector import detect_anomalies, get_anomaly_events
 
 logger = logging.getLogger(__name__)
 
@@ -66,8 +66,8 @@ _SEVERITY_THRESHOLDS: dict[str, float] = {
 def build_narrative(
     df: pd.DataFrame,
     key: str,
-    anomaly_flags: pd.Series | None = None,
     forecast_df: pd.DataFrame | None = None,
+    anomaly_flags: pd.Series | None = None,
 ) -> list[str]:
     """
     Build a list of plain-language findings for one indicator.
@@ -81,10 +81,7 @@ def build_narrative(
         Full historical DataFrame with DatetimeIndex and a column named ``key``.
     key : str
         Series key (must be in ``config.FRED_SERIES``).
-    anomaly_flags : pd.Series | None
-        Boolean anomaly flags from ``anomaly_detector.detect_anomalies()``.
-        Pass None to skip anomaly findings.
-    forecast_df : pd.DataFrame | None
+forecast_df : pd.DataFrame | None
         Prophet forecast DataFrame from ``forecaster.forecast_series()``.
         Pass None to skip forecast findings.
 
@@ -157,7 +154,7 @@ def build_all_narratives(
         flags    = (all_flags    or {}).get(key)
         forecast = (all_forecasts or {}).get(key)
         try:
-            results[key] = build_narrative(df, key, flags, forecast)
+            results[key] = build_narrative(df, key, forecast, flags)
         except Exception as exc:
             logger.error("Narrative generation failed for '%s': %s", key, exc)
             results[key] = [f"Could not generate narrative for this indicator."]
