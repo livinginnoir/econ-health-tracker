@@ -219,6 +219,9 @@ def add_forecast_overlay(
     """
     # --- Isolate the future portion (plus one overlap point) ---
     future = forecast_df[forecast_df["ds"] >= last_historical_date].copy()
+    # Cast ds to datetime so Plotly places forecast points on the same x-axis
+    # scale as the historical DatetimeIndex — mismatched types cause a gap.
+    future["ds"] = pd.to_datetime(future["ds"]).dt.strftime("%Y-%m-%d")
 
     if future.empty:
         return fig
@@ -399,7 +402,7 @@ def make_line_chart(
 
     # --- Historical line + area fill ---
     fig.add_trace(go.Scatter(
-        x=series.index,
+        x=series.index.strftime("%Y-%m-%d"),
         y=series.values,
         mode="lines",
         name=label,
