@@ -227,22 +227,14 @@ def load_data(force_refresh: bool = False) -> pd.DataFrame:
 
 
 @st.cache_data(ttl=3600, show_spinner="Running forecasts…")
-def load_forecasts(df_hash: str, _df: pd.DataFrame) -> tuple:
+def load_forecasts(df_hash: str, _df: pd.DataFrame) -> dict:
     """
-    Fit Prophet models and return (forecast dict, error dict).
+    Fit Prophet models and return forecast DataFrames for all indicators.
 
-    Returns a tuple so errors are surfaced in the UI rather than swallowed.
-    ``df_hash`` controls cache invalidation; ``_df`` is unhashed (leading _).
+    ``df_hash`` controls cache invalidation; ``_df`` is unhashed (leading _)
+    so Streamlit skips hashing it — invalidation is controlled via ``df_hash``.
     """
-    results: dict = {}
-    errors: dict = {}
-    for key in _df.columns:
-        try:
-            from src.forecaster import forecast_series
-            results[key] = forecast_series(_df, key)
-        except Exception as exc:
-            errors[key] = str(exc)
-    return results, errors
+    return forecast_all(_df)
 
 
 @st.cache_data(ttl=3600, show_spinner="Detecting anomalies…")
@@ -340,30 +332,15 @@ cache_key = _df_cache_key(df_raw)
 forecasts: dict = {}
 anomalies: dict = {}
 
-forecast_errors: dict = {}
 if show_forecast:
     with st.spinner("Running Prophet forecasts…"):
         try:
-            forecasts, forecast_errors = load_forecasts(cache_key, df_raw)
+            forecasts = load_forecasts(cache_key, df_raw)
         except Exception as e:
             st.warning(f"Forecast unavailable: {e}")
 
 if show_anomalies:
     anomalies = load_anomalies(cache_key, df_raw)
-
-# --- Debug expander (remove once forecasts confirmed working) ---
-with st.expander("🔍 Debug: Phase 3 status", expanded=False):
-    st.write(f"**Cache key:** `{cache_key}`")
-    st.write(f"**show_forecast toggle:** `{show_forecast}`")
-    st.write(f"**Forecast keys returned:** `{list(forecasts.keys())}`")
-    for k, fdf in forecasts.items():
-        st.write(f"  `{k}`: {len(fdf)} rows, ds range "
-                 f"`{fdf['ds'].min().date()}` → `{fdf['ds'].max().date()}`")
-    if forecast_errors:
-        st.write("**Forecast errors:**")
-        for k, err in forecast_errors.items():
-            st.error(f"`{k}`: {err}")
-    st.write(f"**Anomaly keys returned:** `{list(anomalies.keys())}`")
 
 # ---------------------------------------------------------------------------
 # Header
