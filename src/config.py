@@ -22,6 +22,7 @@ FRED_SERIES: dict[str, dict] = {
         "frequency": "Monthly",
         "source": "FRED",
         "positive_direction": "down",   # lower unemployment = better
+        "value_floor": 0.0,             # Prophet yhat_lower clamp (Phase 3)
     },
     "cpi_west": {
         "series_id": "CUURA400SA0",
@@ -30,6 +31,7 @@ FRED_SERIES: dict[str, dict] = {
         "frequency": "Monthly",
         "source": "FRED",
         "positive_direction": "down",   # lower inflation = better
+        "value_floor": 0.0,
     },
     "home_price_index": {
         "series_id": "ATNHPIUS38900Q",
@@ -38,6 +40,7 @@ FRED_SERIES: dict[str, dict] = {
         "frequency": "Quarterly",
         "source": "FRED",
         "positive_direction": "down",   # lower = more affordable
+        "value_floor": 0.0,
     },
     "fed_funds_rate": {
         "series_id": "FEDFUNDS",
@@ -46,6 +49,7 @@ FRED_SERIES: dict[str, dict] = {
         "frequency": "Monthly",
         "source": "FRED",
         "positive_direction": "down",   # lower rates = looser conditions
+        "value_floor": 0.0,
     },
 }
 
@@ -79,6 +83,28 @@ DEFAULT_END_DATE: str | None = None  # None → FRED returns up to today
 # Local cache directory for raw CSVs (excluded from git via .gitignore).
 RAW_DATA_DIR: str = "data/raw"
 PROCESSED_DATA_DIR: str = "data/processed"
+
+# ---------------------------------------------------------------------------
+# Phase 3 — Forecasting Settings
+# ---------------------------------------------------------------------------
+
+# Number of months to forecast ahead.  Prophet converts this to the correct
+# number of periods for quarterly series automatically via freq inference.
+FORECAST_HORIZON_MONTHS: int = 12
+
+# ---------------------------------------------------------------------------
+# Phase 3 — Anomaly Detection Settings
+# ---------------------------------------------------------------------------
+
+# Rolling window size (in observations) for the z-score baseline.
+# 24 months = 2 full years; long enough to capture a business cycle segment
+# without being so long that the window becomes insensitive to regime shifts.
+ANOMALY_ZSCORE_WINDOW: int = 24
+
+# Number of standard deviations beyond which an observation is flagged.
+# 2.0 σ ≈ top/bottom 2.3% of a normal distribution — a reasonable signal
+# threshold that avoids excessive false positives on economic series.
+ANOMALY_ZSCORE_THRESH: float = 2.0
 
 # ---------------------------------------------------------------------------
 # Streamlit App Settings

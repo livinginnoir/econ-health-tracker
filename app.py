@@ -12,8 +12,9 @@ with ``@st.cache_data`` so re-renders are instant.
 
 Layout
 ------
-  Sidebar   : Date range, indicator selector, data controls
-  Main      : Header → Snapshot cards → Charts → Raw data table
+  Sidebar   : Date range, indicator selector, data controls, Phase 3 toggles
+  Main      : Header → Snapshot cards → Charts (+ forecast/anomalies) → "So
+              What?" narrative → Raw data table
 """
 
 from __future__ import annotations
@@ -44,6 +45,9 @@ from src.chart_helpers import (
     compute_snapshot,
     make_line_chart,
 )
+from src.forecaster import forecast_all
+from src.anomaly_detector import detect_all_anomalies
+from src.narrative import build_all_narratives
 
 # ---------------------------------------------------------------------------
 # Custom CSS — design tokens applied at the page level
@@ -158,16 +162,37 @@ st.markdown(
         margin-bottom: 0.1rem;
     }
 
-    /* ── Placeholder (Phase 3) ─────────────────────────────────────────── */
-    .phase3-placeholder {
-        background: #F0EDE8;
-        border: 1.5px dashed #CCCCCC;
+    /* ── Narrative cards ────────────────────────────────────────────────── */
+    .narrative-card {
+        background: #FFFFFF;
         border-radius: 6px;
-        padding: 1.5rem;
-        text-align: center;
-        color: #AAAAAA;
-        font-size: 0.75rem;
-        letter-spacing: 0.06em;
+        padding: 1.2rem 1.4rem;
+        border-left: 3px solid var(--card-accent, #888);
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        margin-bottom: 1rem;
+    }
+    .narrative-title {
+        font-size: 0.68rem;
+        color: #888880;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        margin-bottom: 0.7rem;
+    }
+    .narrative-finding {
+        font-size: 0.82rem;
+        color: #2C2C2C;
+        line-height: 1.65;
+        margin-bottom: 0.4rem;
+        padding-left: 0.9rem;
+        position: relative;
+    }
+    .narrative-finding::before {
+        content: "◆";
+        position: absolute;
+        left: 0;
+        color: var(--card-accent, #888);
+        font-size: 0.5rem;
+        top: 0.35rem;
     }
 
     /* ── Streamlit overrides ────────────────────────────────────────────── */
@@ -199,6 +224,33 @@ def load_data(force_refresh: bool = False) -> pd.DataFrame:
         df = fetch_all_fred()
     df.index = pd.to_datetime(df.index)
     return df
+
+
+@st.cache_data(ttl=3600, show_spinner="Running forecasts…")
+def load_forecasts(df_hash: str, _df: pd.DataFrame) -> dict:
+    """
+    Fit Prophet models and return forecast DataFrames for all indicators.
+
+    ``df_hash`` is a string representation of the DataFrame index range, used
+    only as a cache key so ``@st.cache_data`` knows when to invalidate
+    (DataFrames themselves are not hashable by default).
+    """
+    return forecast_all(_df)
+
+
+@st.cache_data(ttl=3600, show_spinner="Detecting anomalies…")
+def load_anomalies(df_hash: str, _df: pd.DataFrame) -> dict:
+    """
+    Run anomaly detection and return boolean flag Series for all indicators.
+
+    Same ``df_hash`` cache-key pattern as ``load_forecasts``.
+    """
+    return detect_all_anomalies(_df)
+
+
+def _df_cache_key(df: pd.DataFrame) -> str:
+    """Lightweight string key representing the DataFrame's date range and shape."""
+    return f"{df.index.min()}_{df.index.max()}_{df.shape}"
 
 
 # ---------------------------------------------------------------------------
@@ -233,6 +285,14 @@ with st.sidebar:
 
     st.markdown("---")
 
+    # --- Phase 3 controls ---
+    st.markdown("**Analysis**")
+    show_forecast  = st.toggle("Show 12-month forecast",   value=True,  key="show_forecast")
+    show_anomalies = st.toggle("Show anomaly markers",     value=True,  key="show_anomalies")
+    show_narrative = st.toggle("Show "So What?" insights", value=True,  key="show_narrative")
+
+    st.markdown("---")
+
     # --- Data refresh ---
     refresh = st.button("🔄 Refresh from FRED", use_container_width=True)
     if refresh:
@@ -244,7 +304,8 @@ with st.sidebar:
         '<div style="font-size:0.65rem;color:#666;line-height:1.6">'
         "Data: FRED (St. Louis Fed)<br>"
         "Recession bands: NBER<br>"
-        "Phase 3: Forecasting →"
+        "Forecast: Prophet (Meta)<br>"
+        "Anomalies: rolling z-score"
         "</div>",
         unsafe_allow_html=True,
     )
@@ -260,6 +321,27 @@ df = df_raw.loc[
 ].copy()
 
 last_updated = df_raw.index.max().strftime("%B %Y")
+
+# ---------------------------------------------------------------------------
+# Phase 3: Load forecasts and anomalies (using full history, not filtered df)
+# Always computed against the full history regardless of the date range filter,
+# so the forecast starts from the true last observation, not the filter cutoff.
+# ---------------------------------------------------------------------------
+
+cache_key = _df_cache_key(df_raw)
+
+forecasts: dict = {}
+anomalies: dict = {}
+
+if show_forecast:
+    with st.spinner("Running Prophet forecasts…"):
+        try:
+            forecasts = load_forecasts(cache_key, df_raw)
+        except Exception as e:
+            st.warning(f"Forecast unavailable: {e}")
+
+if show_anomalies:
+    anomalies = load_anomalies(cache_key, df_raw)
 
 # ---------------------------------------------------------------------------
 # Header
@@ -300,10 +382,6 @@ else:
         value_str = f"{snap['latest_value']:.2f}"
         date_str  = snap["latest_date"].strftime("%b %Y") if snap["latest_date"] else "—"
 
-        # Delta formatting
-        # "up" CSS class = green, "down" = red.
-        # Colour reflects whether the move is economically positive,
-        # not just whether the number went up — e.g. falling unemployment = good.
         if snap["delta"] is not None:
             sign         = "+" if snap["delta"] >= 0 else ""
             arrow        = "▲" if snap["delta"] >= 0 else "▼"
@@ -351,6 +429,7 @@ if selected_keys:
             st.warning(f"No data in selected range for {meta['label']}.")
             continue
 
+        # Pass Phase 3 data to the chart builder (None = disabled by toggle or unavailable)
         fig = make_line_chart(
             df=df,
             key=key,
@@ -358,9 +437,10 @@ if selected_keys:
             units=meta["units"],
             color=color,
             show_recession_bands=True,
+            forecast_df=forecasts.get(key) if show_forecast else None,
+            anomaly_flags=anomalies.get(key) if show_anomalies else None,
         )
 
-        # Wrap in a white card via markdown + plotly chart
         with st.container():
             st.markdown(
                 f'<div class="chart-label" style="color:{color}">'
@@ -374,19 +454,62 @@ else:
     st.info("Select at least one indicator in the sidebar to display charts.")
 
 # ---------------------------------------------------------------------------
-# Phase 3 placeholder — "So What?" narrative
+# "So What?" narrative section (Phase 3)
 # ---------------------------------------------------------------------------
 
 st.markdown('<div class="section-header">So What?</div>', unsafe_allow_html=True)
-st.markdown(
-    """
-    <div class="phase3-placeholder">
-        ✦ Phase 3 &nbsp;—&nbsp; Forecasting &amp; narrative insights coming soon<br>
-        <span style="font-size:0.65rem">Prophet forecasts · Anomaly detection · Plain-language summary</span>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+
+if show_narrative and selected_keys:
+    # Build narratives using full history (same as forecasts/anomalies)
+    narratives = build_all_narratives(
+        df=df_raw,
+        all_flags=anomalies if show_anomalies else None,
+        all_forecasts=forecasts if show_forecast else None,
+    )
+
+    ACCENT_COLORS = {
+        "unemployment_rate": CHART_COLORS["unemployment_rate"],
+        "cpi_west":          CHART_COLORS["cpi_west"],
+        "home_price_index":  CHART_COLORS["home_price_index"],
+        "fed_funds_rate":    CHART_COLORS["fed_funds_rate"],
+    }
+
+    for key in selected_keys:
+        if key not in narratives:
+            continue
+
+        meta     = FRED_SERIES[key]
+        findings = narratives[key]
+        accent   = ACCENT_COLORS.get(key, "#888888")
+
+        if not findings:
+            continue
+
+        # Build the findings HTML
+        findings_html = "".join(
+            f'<div class="narrative-finding">{f}</div>'
+            for f in findings
+        )
+
+        st.markdown(
+            f"""
+            <div class="narrative-card" style="--card-accent:{accent}">
+              <div class="narrative-title">{meta['label']}</div>
+              {findings_html}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+elif not show_narrative:
+    st.markdown(
+        '<div style="color:#AAAAAA;font-size:0.75rem;font-family:\'IBM Plex Mono\',monospace;">'
+        'Enable "So What? insights" in the sidebar to see plain-language analysis.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+else:
+    st.info("Select at least one indicator in the sidebar.")
 
 # ---------------------------------------------------------------------------
 # Raw data table
