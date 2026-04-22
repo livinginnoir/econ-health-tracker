@@ -267,14 +267,27 @@ def add_forecast_overlay(
     ))
 
     # --- Vertical divider line at the forecast start ---
-    fig.add_vline(
+    # Drawn as a scatter trace rather than add_vline to avoid a Plotly 5.22
+    # bug where add_vline with annotation fails on datetime x-axes.
+    fig.add_shape(
+        type="line",
+        x0=last_historical_date.isoformat(),
+        x1=last_historical_date.isoformat(),
+        y0=0,
+        y1=1,
+        yref="paper",
+        line=dict(color="rgba(160, 160, 160, 0.6)", width=1, dash="dot"),
+    )
+    # "Forecast →" label as a layout annotation (bypasses the broken add_vline path)
+    fig.add_annotation(
         x=last_historical_date.isoformat(),
-        line_width=1,
-        line_dash="dot",
-        line_color="rgba(160, 160, 160, 0.6)",
-        annotation_text="Forecast →",
-        annotation_position="top right",
-        annotation_font=dict(size=9, color="#AAAAAA", family=_FONT_FAMILY),
+        y=1,
+        yref="paper",
+        text="Forecast →",
+        showarrow=False,
+        xanchor="left",
+        yanchor="bottom",
+        font=dict(size=9, color="#AAAAAA", family=_FONT_FAMILY),
     )
 
     return fig
