@@ -212,13 +212,15 @@ def _finding_yoy_change(series: pd.Series, meta: dict) -> list[str]:
 
     # Is this move economically good or bad?
     is_good = (delta > 0) == (pos_dir == "up")
-    sentiment = "a positive sign" if is_good else "a concern worth monitoring"
     if severity == "mild":
         sentiment = "modest change"
+    elif is_good:
+        sentiment = "a positive sign" if severity == "significant" else "a moderately positive move"
+    else:
+        sentiment = "a concern worth monitoring" if severity == "significant" else "worth keeping an eye on"
 
     return [
-        f"{label} has {direction} {delta_pct:.1f}% year-over-year — "
-        f"{severity} movement and {sentiment}."
+        f"{label} has {direction} {delta_pct:.1f}% year-over-year — {sentiment}."
     ]
 
 
@@ -237,6 +239,12 @@ def _finding_vs_long_run(series: pd.Series, meta: dict) -> list[str]:
     above_below = "above" if pct_diff > 0 else "below"
     is_good     = (pct_diff > 0) == (pos_dir == "up")
     qualifier   = "which is historically favourable" if is_good else "which is historically elevated"
+
+    # For the fed funds rate, the long-run average is skewed down by the
+    # zero-bound era (2009–2015 and 2020–2022). Add a softening note.
+    series_key = label.lower()
+    if "federal funds" in series_key and above_below == "above":
+        qualifier = "though the long-run average is skewed down by the zero-bound era"
 
     return [
         f"The current reading is {abs(pct_diff):.1f}% {above_below} the long-run average "
@@ -309,10 +317,11 @@ def _finding_forecast(
     is_good   = (total_change > 0) == (pos_dir == "up")
 
     # Vary outlook language by severity to avoid every card ending identically.
+    # Use "significant" threshold relative to the series type for richer language.
     if is_good:
-        outlook = "a positive signal" if severity == "significant" else "a moderately positive sign"
+        outlook = "a positive signal" if severity in ("significant", "moderate") else "a moderately positive sign"
     else:
-        outlook = "a meaningful headwind" if severity == "significant" else "worth watching"
+        outlook = "a meaningful headwind" if severity in ("significant", "moderate") else "worth monitoring"
 
     horizon_months = len(future)
     horizon_label  = f"{horizon_months} month{'s' if horizon_months != 1 else ''}"

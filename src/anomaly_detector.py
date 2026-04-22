@@ -234,6 +234,15 @@ def get_anomaly_events(
     events.append(_summarise_event(group, series))
 
     events_df = pd.DataFrame(events)
+
+    # Suppress events whose end date falls within the last 3 months of the
+    # series — the rolling z-score trailing edge generates false positives on
+    # recent data even after suppressing individual flag points.
+    if not events_df.empty:
+        series_end = series.index[-1]
+        cutoff     = series_end - pd.DateOffset(months=3)
+        events_df  = events_df[events_df["end"] < cutoff]
+
     # Return the N most recent events.
     return events_df.sort_values("start", ascending=False).head(n_recent).reset_index(drop=True)
 
