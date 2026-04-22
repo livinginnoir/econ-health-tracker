@@ -70,6 +70,7 @@ def _apply_base_layout(
     title: str = "",
     y_title: str = "",
     y_format: str | None = None,
+    x_range: list | None = None,
 ) -> go.Figure:
     """
     Apply the dashboard's standard layout to a figure.
@@ -114,12 +115,13 @@ def _apply_base_layout(
             font=dict(size=10, family=_FONT_FAMILY),
             bgcolor="rgba(0,0,0,0)",
         ),
-        xaxis=dict(
-            showgrid=False,
-            tickfont=dict(size=10, family=_FONT_FAMILY, color="#555555"),
-            zeroline=False,
-            showline=False,
-        ),
+        xaxis={
+            "showgrid": False,
+            "tickfont": dict(size=10, family=_FONT_FAMILY, color="#555555"),
+            "zeroline": False,
+            "showline": False,
+            **( {"range": x_range, "autorange": False} if x_range else {} ),
+        },
         yaxis=y_axis_kwargs,
         hoverlabel=dict(
             font_family=_FONT_FAMILY,
@@ -421,6 +423,16 @@ def make_line_chart(
 
     fig = go.Figure()
 
+    # Pre-compute x_range so it's baked into the layout at creation time.
+    # This is more reliable than post-hoc range updates on Plotly 5.22 date axes.
+    x_range = None
+    if forecast_df is not None and not series.empty:
+        forecast_end = pd.to_datetime(forecast_df["ds"]).max()
+        x_range = [
+            series.index.min(),
+            forecast_end + pd.DateOffset(months=2),
+        ]
+
     # --- Historical line + area fill ---
     fig.add_trace(go.Scatter(
         x=series.index,
@@ -434,16 +446,13 @@ def make_line_chart(
         hovertemplate=f"<b>{label}</b><br>%{{x|%b %Y}}<br>%{{y:.2f}} {units}<extra></extra>",
     ))
 
-    _apply_base_layout(fig, y_title=units)
+    _apply_base_layout(fig, y_title=units, x_range=x_range)
 
     if show_recession_bands and len(series) > 0:
         add_recession_bands(fig, series.index.min(), series.index.max())
 
-    # --- Phase 3: anomaly markers (drawn before forecast so forecast is on top) ---
-    if anomaly_flags is not None and not series.empty:
-        add_anomaly_markers(fig, series, anomaly_flags, color, label, units)
-
-    # --- Phase 3: forecast overlay ---
+    # --- Phase 3: forecast overlay (added before anomaly so anomaly markers
+    # appear on top of the forecast band) ---
     if forecast_df is not None and not series.empty:
         add_forecast_overlay(
             fig,
@@ -454,24 +463,12 @@ def make_line_chart(
             label=label,
             units=units,
         )
-        # Force Plotly autorange to include the full forecast window by adding
-        # an invisible trace at the forecast end date. Range-setting approaches
-        # (update_layout, update_xaxes) are unreliable on date axes in Plotly
-        # 5.22 — a phantom trace is the most robust workaround.
-        forecast_end = pd.to_datetime(forecast_df["ds"]).max()
-        x_end_padded = forecast_end + pd.DateOffset(months=1)
-        fig.add_trace(go.Scatter(
-            x=[x_end_padded],
-            y=[float(series.iloc[-1])],
-            mode="markers",
-            marker=dict(opacity=0, size=0.1),
-            showlegend=False,
-            hoverinfo="skip",
-            name="_range_anchor",
-        ))
 
-    # Fix legend text visibility: increase bottom margin and push legend down
-    # slightly so labels aren't clipped by the chart container.
+    # --- Phase 3: anomaly markers (added after forecast so they render on top) ---
+    if anomaly_flags is not None and not series.empty:
+        add_anomaly_markers(fig, series, anomaly_flags, color, label, units)
+
+    # Legend styling
     fig.update_layout(
         margin=dict(l=12, r=24, t=44, b=24),
         legend=dict(
@@ -480,6 +477,7 @@ def make_line_chart(
             y=0.01,
             xanchor="left",
             x=0.01,
+            traceorder="normal",
             font=dict(size=10, family="IBM Plex Mono, monospace", color="#2C2C2C"),
             bgcolor="rgba(255,255,255,0.85)",
             bordercolor="rgba(0,0,0,0.08)",
