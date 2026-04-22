@@ -103,7 +103,7 @@ def _apply_base_layout(
         plot_bgcolor=CHART_COLORS["bg"],
         paper_bgcolor=CHART_COLORS["bg"],
         font=dict(family=_FONT_FAMILY),
-        margin=dict(l=12, r=12, t=44, b=12),
+        margin=dict(l=12, r=12, t=44, b=48),
         hovermode="x unified",
         legend=dict(
             orientation="h",

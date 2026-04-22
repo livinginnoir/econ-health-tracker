@@ -250,7 +250,7 @@ def load_anomalies(df_hash: str, _df: pd.DataFrame) -> dict:
 
 def _df_cache_key(df: pd.DataFrame) -> str:
     """Lightweight string key representing the DataFrame's date range and shape."""
-    return f"{df.index.min()}_{df.index.max()}_{df.shape}"
+    return f"{df.index.min()}_{df.index.max()}_{df.shape[0]}_{df.shape[1]}"
 
 
 # ---------------------------------------------------------------------------
@@ -342,6 +342,16 @@ if show_forecast:
 
 if show_anomalies:
     anomalies = load_anomalies(cache_key, df_raw)
+
+# --- Debug expander (remove once forecasts confirmed working) ---
+with st.expander("🔍 Debug: Phase 3 status", expanded=False):
+    st.write(f"**Cache key:** `{cache_key}`")
+    st.write(f"**show_forecast toggle:** `{show_forecast}`")
+    st.write(f"**Forecast keys returned:** `{list(forecasts.keys())}`")
+    for k, fdf in forecasts.items():
+        st.write(f"  `{k}`: {len(fdf)} rows, ds range "
+                 f"`{fdf['ds'].min().date()}` → `{fdf['ds'].max().date()}`")
+    st.write(f"**Anomaly keys returned:** `{list(anomalies.keys())}`")
 
 # ---------------------------------------------------------------------------
 # Header
