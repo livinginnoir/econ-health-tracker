@@ -242,8 +242,8 @@ def add_forecast_overlay(
     future["yhat_lower"] = future["yhat_lower"] + anchor_shift
     future["yhat_upper"] = future["yhat_upper"] + anchor_shift
 
-    # Cast ds to date strings for consistent x-axis rendering with historical trace.
-    future["ds"] = pd.to_datetime(future["ds"]).dt.strftime("%Y-%m-%d")
+    # Ensure ds is datetime for consistent rendering with the historical DatetimeIndex.
+    future["ds"] = pd.to_datetime(future["ds"])
 
     # --- Confidence band (filled area between lower and upper) ---
     # Render as a filled-area trace using the "tonexty" fill mode.
@@ -421,7 +421,7 @@ def make_line_chart(
 
     # --- Historical line + area fill ---
     fig.add_trace(go.Scatter(
-        x=series.index.strftime("%Y-%m-%d"),
+        x=series.index,
         y=series.values,
         mode="lines",
         name=label,
@@ -455,22 +455,24 @@ def make_line_chart(
         # Without this, Plotly autoranges on the historical data only and
         # clips the forecast traces at the right edge.
         forecast_end = pd.to_datetime(forecast_df["ds"]).max()
-        x_start = series.index.min().strftime("%Y-%m-%d")
-        x_end   = (forecast_end + pd.DateOffset(months=1)).strftime("%Y-%m-%d")
+        x_start = series.index.min()
+        x_end   = forecast_end + pd.DateOffset(months=1)
         fig.update_layout(xaxis_range=[x_start, x_end])
 
     # Fix legend text visibility: increase bottom margin and push legend down
     # slightly so labels aren't clipped by the chart container.
     fig.update_layout(
-        margin=dict(l=12, r=24, t=44, b=64),
+        margin=dict(l=12, r=24, t=44, b=24),
         legend=dict(
             orientation="h",
-            yanchor="top",
-            y=-0.18,
+            yanchor="bottom",
+            y=0.01,
             xanchor="left",
-            x=0,
+            x=0.01,
             font=dict(size=10, family="IBM Plex Mono, monospace"),
-            bgcolor="rgba(0,0,0,0)",
+            bgcolor="rgba(255,255,255,0.6)",
+            bordercolor="rgba(0,0,0,0.08)",
+            borderwidth=1,
         ),
     )
 
