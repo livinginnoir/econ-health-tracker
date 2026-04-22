@@ -311,6 +311,15 @@ def _finding_forecast(
     horizon_months = len(future)
     horizon_label  = f"{horizon_months} month{'s' if horizon_months != 1 else ''}"
 
+    # If the projected change is implausibly large (>20% for any indicator),
+    # report direction only without a specific magnitude — a large anchor shift
+    # from a volatile recent period can produce unreliable point estimates.
+    if total_change_pct > 20.0:
+        return [
+            f"The model projects {label} to {direction} over the next {horizon_label}, "
+            f"though the magnitude is uncertain given recent volatility."
+        ]
+
     return [
         f"The model projects {label} to {direction} approximately {total_change_pct:.1f}% "
         f"over the next {horizon_label}, {outlook}."

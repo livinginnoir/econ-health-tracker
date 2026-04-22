@@ -112,6 +112,12 @@ def detect_anomalies(
 
     # NaN z-scores (first few observations, or flat windows) → not flagged.
     flags = flags.fillna(False)
+
+    # Suppress the most recent observation — it has no forward context and
+    # frequently generates false positives at the trailing edge of the series.
+    if len(flags) > 0:
+        flags.iloc[-1] = False
+
     flags.name = f"{key}_anomaly"
 
     n_flagged = int(flags.sum())
