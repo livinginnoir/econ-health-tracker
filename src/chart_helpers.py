@@ -183,6 +183,7 @@ def add_forecast_overlay(
     fig: go.Figure,
     forecast_df: pd.DataFrame,
     last_historical_date: pd.Timestamp,
+    last_actual_value: float,
     color: str,
     label: str,
     units: str,
@@ -207,6 +208,9 @@ def add_forecast_overlay(
                            ``ds``, ``yhat``, ``yhat_lower``, ``yhat_upper``.
     last_historical_date : The last date in the historical series — used to
                            split history from forecast and draw the divider.
+    last_actual_value    : The last observed value in the historical series —
+                           used to anchor the forecast so it starts exactly
+                           where the historical line ends.
     color                : Hex color for the forecast line (matching the
                            historical line color).
     label                : Human-readable series name for hover text.
@@ -219,12 +223,27 @@ def add_forecast_overlay(
     """
     # --- Isolate the future portion (plus one overlap point) ---
     future = forecast_df[forecast_df["ds"] >= last_historical_date].copy()
-    # Cast ds to datetime so Plotly places forecast points on the same x-axis
-    # scale as the historical DatetimeIndex — mismatched types cause a gap.
-    future["ds"] = pd.to_datetime(future["ds"]).dt.strftime("%Y-%m-%d")
 
     if future.empty:
         return fig
+
+    # Anchor forecast to the last actual observed value.
+    # Prophet's in-sample yhat at the last date rarely equals the actual value
+    # (especially after volatile periods), causing a visible gap at the handoff.
+    # We shift the entire future forecast up/down by the difference so the
+    # dashed line starts exactly where the historical line ends.
+    # Find Prophet's fitted value at the last historical date and compute
+    # the shift needed to connect the forecast to the actual last observation.
+    ds_as_dt    = pd.to_datetime(forecast_df["ds"])
+    closest_idx = (ds_as_dt - pd.Timestamp(last_historical_date)).abs().argmin()
+    last_yhat   = float(forecast_df["yhat"].iloc[closest_idx])
+    anchor_shift = float(last_actual_value) - last_yhat
+    future["yhat"]       = future["yhat"]       + anchor_shift
+    future["yhat_lower"] = future["yhat_lower"] + anchor_shift
+    future["yhat_upper"] = future["yhat_upper"] + anchor_shift
+
+    # Cast ds to date strings for consistent x-axis rendering with historical trace.
+    future["ds"] = pd.to_datetime(future["ds"]).dt.strftime("%Y-%m-%d")
 
     # --- Confidence band (filled area between lower and upper) ---
     # Render as a filled-area trace using the "tonexty" fill mode.
@@ -427,6 +446,7 @@ def make_line_chart(
             fig,
             forecast_df=forecast_df,
             last_historical_date=series.index[-1],
+            last_actual_value=float(series.iloc[-1]),
             color=color,
             label=label,
             units=units,
