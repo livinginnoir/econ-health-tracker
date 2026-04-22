@@ -276,6 +276,7 @@ def add_forecast_overlay(
         y=future["yhat"],
         mode="lines",
         name=f"{label} (forecast)",
+        legendrank=2,
         line=dict(
             color=_hex_to_rgba(color, alpha=0.70),
             width=2,
@@ -361,6 +362,7 @@ def add_anomaly_markers(
         y=anomalous.values,
         mode="markers",
         name=f"{label} (anomaly)",
+        legendrank=3,
         marker=dict(
             color="rgba(0,0,0,0)",          # transparent fill → hollow circle
             size=10,
@@ -425,6 +427,7 @@ def make_line_chart(
         y=series.values,
         mode="lines",
         name=label,
+        legendrank=1,
         line=dict(color=color, width=2),
         fill="tozeroy",
         fillcolor="rgba(0,0,0,0.04)",
@@ -451,13 +454,21 @@ def make_line_chart(
             label=label,
             units=units,
         )
-        # Extend the x-axis range to include the full forecast window.
-        # Without this, Plotly autoranges on the historical data only and
-        # clips the forecast traces at the right edge.
+        # Force Plotly autorange to include the full forecast window by adding
+        # an invisible trace at the forecast end date. Range-setting approaches
+        # (update_layout, update_xaxes) are unreliable on date axes in Plotly
+        # 5.22 — a phantom trace is the most robust workaround.
         forecast_end = pd.to_datetime(forecast_df["ds"]).max()
-        x_start = series.index.min().strftime("%Y-%m-%d")
-        x_end   = (forecast_end + pd.DateOffset(months=2)).strftime("%Y-%m-%d")
-        fig.update_xaxes(range=[x_start, x_end], type="date")
+        x_end_padded = forecast_end + pd.DateOffset(months=1)
+        fig.add_trace(go.Scatter(
+            x=[x_end_padded],
+            y=[float(series.iloc[-1])],
+            mode="markers",
+            marker=dict(opacity=0, size=0.1),
+            showlegend=False,
+            hoverinfo="skip",
+            name="_range_anchor",
+        ))
 
     # Fix legend text visibility: increase bottom margin and push legend down
     # slightly so labels aren't clipped by the chart container.
