@@ -217,7 +217,7 @@ def _finding_yoy_change(series: pd.Series, meta: dict) -> list[str]:
     elif is_good:
         sentiment = "a positive sign" if severity == "significant" else "a moderately positive move"
     else:
-        sentiment = "a concern worth monitoring" if severity == "significant" else "worth keeping an eye on"
+        sentiment = "a concern worth monitoring" if severity == "significant" else "a trend worth monitoring"
 
     return [
         f"{label} has {direction} {delta_pct:.1f}% year-over-year — {sentiment}."
@@ -240,11 +240,12 @@ def _finding_vs_long_run(series: pd.Series, meta: dict) -> list[str]:
     is_good     = (pct_diff > 0) == (pos_dir == "up")
     qualifier   = "which is historically favourable" if is_good else "which is historically elevated"
 
-    # For the fed funds rate, the long-run average is skewed down by the
-    # zero-bound era (2009–2015 and 2020–2022). Add a softening note.
+    # Add context caveats where the long-run average is misleading.
     series_key = label.lower()
     if "federal funds" in series_key and above_below == "above":
         qualifier = "though the long-run average is skewed down by the zero-bound era"
+    elif ("cpi" in series_key or "price index" in series_key) and above_below == "above":
+        qualifier = "reflecting structural price growth since the base period"
 
     return [
         f"The current reading is {abs(pct_diff):.1f}% {above_below} the long-run average "
@@ -280,9 +281,10 @@ def _finding_anomalies(
         else:
             period_str = f"{start_str}–{end_str}"
 
+        extreme_label = "low" if direction == "below" else "peak"
         sentences.append(
             f"An unusual period was detected {period_str}: values were notably "
-            f"{direction} the historical norm (peak: {peak:.2f})."
+            f"{direction} the historical norm ({extreme_label}: {peak:.2f})."
         )
 
     return sentences
