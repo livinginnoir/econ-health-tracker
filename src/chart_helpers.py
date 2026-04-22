@@ -455,9 +455,9 @@ def make_line_chart(
         # Without this, Plotly autoranges on the historical data only and
         # clips the forecast traces at the right edge.
         forecast_end = pd.to_datetime(forecast_df["ds"]).max()
-        x_start = series.index.min()
-        x_end   = forecast_end + pd.DateOffset(months=1)
-        fig.update_layout(xaxis_range=[x_start, x_end])
+        x_start = series.index.min().strftime("%Y-%m-%d")
+        x_end   = (forecast_end + pd.DateOffset(months=2)).strftime("%Y-%m-%d")
+        fig.update_xaxes(range=[x_start, x_end], type="date")
 
     # Fix legend text visibility: increase bottom margin and push legend down
     # slightly so labels aren't clipped by the chart container.
@@ -469,8 +469,8 @@ def make_line_chart(
             y=0.01,
             xanchor="left",
             x=0.01,
-            font=dict(size=10, family="IBM Plex Mono, monospace"),
-            bgcolor="rgba(255,255,255,0.6)",
+            font=dict(size=10, family="IBM Plex Mono, monospace", color="#2C2C2C"),
+            bgcolor="rgba(255,255,255,0.85)",
             bordercolor="rgba(0,0,0,0.08)",
             borderwidth=1,
         ),
