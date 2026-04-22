@@ -289,7 +289,7 @@ with st.sidebar:
     st.markdown("**Analysis**")
     show_forecast  = st.toggle("Show 12-month forecast",   value=True,  key="show_forecast")
     show_anomalies = st.toggle("Show anomaly markers",     value=True,  key="show_anomalies")
-    show_narrative = st.toggle("Show "So What?" insights", value=True,  key="show_narrative")
+    show_narrative = st.toggle('Show "So What?" insights', value=True,  key="show_narrative")
 
     st.markdown("---")
 
